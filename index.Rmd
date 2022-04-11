@@ -2,7 +2,7 @@
 title: "index"
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
+    orientation: row
     vertical_layout: fill
 editor_options: 
   chunk_output_type: console
@@ -14,51 +14,176 @@ library(tidyverse)
 library(here)
 library(ggraph)
 library(igraph)
+library(plotly)
+library(shiny)
+library(dplyr)
+library(here)
+library(ggplot2)
+library(ggraph)
+library(tidygraph)
+library(writexl)
+library(RColorBrewer)
+library(gt)
+```
+
+```{r data}
+##Commented this code out for later application...to use in more real time application for summer encompass workshop
+#read_csv("DATA/ORCIDS W1 SP21 RAW.csv") -> DBdata
+#select(DBdata, 3,8:13) -> DBdata_1 #MessageID, Forum Name, Parent Post/InReplyTo, ThreadID, AuthorFrom
+#select(DBdata_1, 1,5) -> messageID #MessageID, AuthorFrom
+#na.omit(DBdata_1) -> DBdata_2 #Removes initial
+#select(DBdata_2, 2:5) -> DBdata_3 #Forum Name, Parent Post/InReplyTo, ThreadID, AuthorFrom
+ # colnames(DBdata_3)[2] <- c("MessageID") #change InReplyTo to message ID
+  #colnames(DBdata_3)[4] <- c("AuthorFrom") 
+#inner_join(messageID, DBdata_3, by = "MessageID") -> DBdata_4
+#colnames(DBdata_4)[2] <- c("AuthorTo")
+#DBdata_4[c(3,5,2,1,4)] -> DBdata_5
+#DBdata_5[order(DBdata_5$"ForumName"),] -> DBdata_6
+#select(DBdata_6, 2,3) -> DBdata_6
+#gr1 <- igraph::graph_from_data_frame(DBdata_6, directed = TRUE)
 ```
 
 ```{r}
-read_csv("DATA/ORCIDS W1 SP21 RAW.csv") -> DBdata
-select(DBdata, 3,8:13) -> DBdata_1 #MessageID, Forum Name, Parent Post/InReplyTo, ThreadID, AuthorFrom
-select(DBdata_1, 1,5) -> messageID #MessageID, AuthorFrom
-na.omit(DBdata_1) -> DBdata_2 #Removes initial
-select(DBdata_2, 2:5) -> DBdata_3 #Forum Name, Parent Post/InReplyTo, ThreadID, AuthorFrom
-  colnames(DBdata_3)[2] <- c("MessageID") #change InReplyTo to message ID
-  colnames(DBdata_3)[4] <- c("AuthorFrom") 
-inner_join(messageID, DBdata_3, by = "MessageID") -> DBdata_4
-colnames(DBdata_4)[2] <- c("AuthorTo")
-DBdata_4[c(3,5,2,1,4)] -> DBdata_5
-DBdata_5[order(DBdata_5$"ForumName"),] -> DBdata_6
-select(DBdata_6, 2,3) -> DBdata_6
-gr1 <- igraph::graph_from_data_frame(DBdata_6, directed = TRUE)
+#library(brainGraph)
+#Cohesiveness <- function(gr){ 
+ # Den = edge_density(gr)
+  #Recip = reciprocity(gr)
+  #Eff = brainGraph::efficiency(gr, type = "global")
+  #Diam = diameter(gr)
+  #Trans = transitivity(gr)
+  #Cent = centralization.degree(gr, mode = "all")$centralization
+  #df = tibble(Den, Recip, Eff, Diam, Trans, Cent)
+  #return(df)  
+#}
+#the following code organizes cohesiveness results into a data frame
+#as.tibble(Cohesiveness(gr1)) -> newdf
 ```
 
+# Network Plots
 
-# Page 1
-
-### Chart A
+### Discussion Forum Interactions
 
 ```{r}
-GrLayout = create_layout(gr1, layout="kk")
+#generating the 1-mode network for comparison with the 2-mode
+read_csv("DATA/SP2021_C1_WKSP1_Mod_1_4_coded.csv") -> edges.1mode
+read_csv("DATA/SP2021_C1_workshop_1_nodes_w_topics.csv") -> nodes
+slice(nodes, 1:17) -> nodes.1mode
+net.1mode <- graph_from_data_frame(d = edges.1mode, vertices = nodes.1mode, directed = TRUE)
+couls <- brewer.pal(3, "Set1")
+my_colors <- couls[as.numeric(as.factor(V(net.1mode)$position))]
+E(net.1mode)$weight <- 1 #assign weight of one to each edge
+net.1mode.1 <-simplify(net.1mode, edge.attr.comb=list(weight="sum")) #collapse multiple edges into weighted according to sum
+plot(net.1mode.1, layout = layout_with_fr, vertex.color=my_colors, vertex.label.color="black", vertex.label.dist=1, edge.arrow.size=.01, vertex.size=8, vertex.label=NA, edge.width=E(net.1mode.1)$weight)
+# Add a legend
+legend("bottomleft", legend=levels(as.factor(V(net.1mode)$position)), col = couls , bty = "n", pch=20 , pt.cex = 1, cex = .5, text.col=couls, horiz = FALSE, inset = c(.01, .01))
+```
 
-  ggraph(GrLayout) +
-  geom_edge_link() +
-  # geom_node_point(aes(size = coreness)) +
-  theme(legend.position="bottom")
+
+### Participant Topic Interactions
+
+```{r}
+read_csv("DATA/SP2021_C1_workshop_1_edges_w_topics.csv") -> edges
+select(edges, 1,4) -> edges
+read_csv("DATA/SP2021_C1_workshop_1_nodes_w_topics.csv") -> nodes
+net <- graph_from_data_frame(d = edges, vertices = nodes, directed = FALSE)
+#bipartite_mapping(net) # test to see if bipartite
+V(net)$type <- bipartite_mapping(net)$type #distinguishes the nodes by mode
+V(net)$color <- ifelse(V(net)$type, "lightblue", "salmon")
+V(net)$shape <- ifelse(V(net)$type, "circle", "square")
+E(net)$color <- "lightgray"
+plot(net, vertex.label.cex = 0.5, vertex.label.color = "black")
 
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+# More Network Plots
 
-### Chart B
+### Participant Discussion Theme Interactions
 
 ```{r}
 
+
+coul <- brewer.pal(5, "Set1")
+my_color <- coul[as.numeric(as.factor(V(net)$topic_name))]
+plot(net, layout = layout_nicely, vertex.shape=V(net)$position_lab, vertex.color=my_color, vertex.size= 8, vertex.label=NA) 
+#shapes are in the csv
+# Add a legend
+legend("bottomleft", legend=levels(as.factor(V(net)$topic_name))  , col = coul , bty = "n", pch=20 , pt.cex = 1, cex = .5, text.col=coul , horiz = FALSE, inset = c(.01, .01))
+
 ```
 
-### Chart C
+### Participant Topic Association *1 mode Projection*
 
 ```{r}
-
+V(net)$type <- bipartite_mapping(net)$type #distinguishes the nodes by mode
+Part_association <- as_incidence_matrix(net) %*% t(as_incidence_matrix(net)) 
+diag(Part_association) <- 0
+net2 <-graph_from_adjacency_matrix(Part_association) 
+EL <- get.edgelist(net2)
+EL1 <- as_tibble(EL)
+nodes.bp <- slice(nodes, 1:17)
+net3 <- graph_from_data_frame(d = EL, vertices = nodes.bp, directed = FALSE)
+couls <- brewer.pal(3, "Set1")
+E(net3)$weight <- 1 #assign weight of one to each edge
+net4<-simplify(net3, edge.attr.comb=list(weight="sum")) #collapse multiple edges into weighted according to sum
+my_color <- couls[as.numeric(as.factor(V(net3)$position))]
+plot(net4, layout = layout_nicely, vertex.color=my_color, vertex.label.color="black", vertex.label.dist=1, edge.arrow.size=.01, vertex.size=8, vertex.label=NA, edge.width=.5*E(net4)$weight)
+legend("bottomleft", legend=levels(as.factor(V(net)$position))  , col = coul , bty = "n", pch=20 , pt.cex = 1, cex = .5, text.col=coul , horiz = FALSE, inset = c(.1, .01))
 ```
+
+# Centrality
+
+### Individual Centrality
+
+```{r}
+Degree <- degree(net3)
+Degree <- as_tibble(Degree)
+Betweenness = betweenness(net3, normalized = TRUE)
+Betweenness <- as_tibble(Betweenness)
+Closeness = closeness(net3)
+Closeness <- as_tibble(Closeness)
+ec <- eigen_centrality(net3, directed=F, weights=E(net3)$weights)$vector
+Eg.centr <- as_tibble(ec)
+Coreness = graph.coreness(net3)
+Coreness <- as_tibble(Coreness)
+slice(nodes, 1:17) -> Names
+select(Names, Media, position) -> Names
+cbind(Names, Degree, Betweenness, Closeness, Eg.centr, Coreness) -> Individual_Centrality
+colnames(Individual_Centrality) <- c("Names", "Position","Degree", "Betweenness", "Closeness", "Eigenvector", "Coreness")
+gt(Individual_Centrality)
+```
+
+# Compare Topic Participant and Participant Participant Networks
+
+### Degree versus Position (Scatterplot)
+
+```{r}
+ggplot(data=Individual_Centrality, mapping = aes(x = Position, y = Degree)) + 
+  geom_jitter(width = 0, height = .6) +
+  geom_smooth() +
+  theme_bw()
+```
+
+
+### Degree versus Position (Boxplot)
+
+```{r}
+ggplot(data=Individual_Centrality, mapping = aes(x = Position, y = Degree)) + 
+  geom_boxplot() +
+  theme_bw()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
