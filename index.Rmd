@@ -69,7 +69,7 @@ read_csv("DATA/SP2021_C1_WKSP1_Mod_1_4_coded.csv") -> edges.1mode
 read_csv("DATA/SP2021_C1_workshop_1_nodes_w_topics.csv") -> nodes
 slice(nodes, 1:17) -> nodes.1mode
 net.1mode <- graph_from_data_frame(d = edges.1mode, vertices = nodes.1mode, directed = TRUE)
-couls <- brewer.pal(3, "Set1")
+couls <- brewer.pal(3, "Set1") 
 my_colors <- couls[as.numeric(as.factor(V(net.1mode)$position))]
 E(net.1mode)$weight <- 1 #assign weight of one to each edge
 net.1mode.1 <-simplify(net.1mode, edge.attr.comb=list(weight="sum")) #collapse multiple edges into weighted according to sum
